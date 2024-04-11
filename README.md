@@ -1,1 +1,1 @@
-# culinarycompass
+# Culinary Compass
