@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import {Graph} from "graph-data-structure";
 import {
   GoogleMap,
   LoadScript,
@@ -13,7 +14,7 @@ const mapContainerStyle = {
   height: "100vh",
 };
 
-const mapApiKey = "AIzaSyBrD8hrtxYjrK1TmSHnOZr68EkMJomqyMI";
+const mapApiKey = "AIzaSyBrD8hrtxYjrK1TmSHnOZr68EkMJomqyMI"; //this should be changed to a secret later
 
 export default function Search() {
   const [location, setLocation] = useState("");
@@ -23,9 +24,35 @@ export default function Search() {
   const [restaurants, setRestaurants] = useState([]);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [mapCenter, setMapCenter] = useState({
-    lat: 28.538336,
-    lng: -81.379234,
+    lat: 29.6465,
+    lng: -82.355659,
   });
+
+  //calculate the distance between two points
+  const haversineFormula = ({coord1}, {coord2}) => {
+    function toRad(x) {
+        return x * Math.PI / 180;
+    }
+
+    const R = 6371; // Earth's radius in miles or kilometers
+    const dLat = toRad(coords2.lat - coords1.lat);
+    const dLon = toRad(coords2.lng - coords1.lng);
+    const lat1 = toRad(coords1.lat);
+    const lat2 = toRad(coords2.lat);
+
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+    return R * c; // Distance in the chosen unit (miles or kilometers)
+  }
+
+  const createGraph = ({businesses}) => {
+    let graph = Graph(); //initialize graph data structure.
+    for(let i = 0; i < businesses.length; i++){
+      graph.addNode(businesses[0].name);
+      
+    }
+  }
 
   const searchRestaurants = async () => {
     const url = `http://localhost:3001/api/search?location=${encodeURIComponent(
@@ -43,6 +70,7 @@ export default function Search() {
           lng: data.businesses[0].coordinates.longitude,
         });
       }
+      createGraph(data.businesses);
     } else {
       console.error("Failed to fetch restaurants:", await response.text());
     }
@@ -150,7 +178,7 @@ export default function Search() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
           >
-            <option value="">Select Price</option>
+            <option value="">N/A</option>
             <option value="1">$</option>
             <option value="2">$$</option>
             <option value="3">$$$</option>
@@ -161,7 +189,7 @@ export default function Search() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            <option value="">Select Cuisine</option>
+            <option value="">N/A</option>
             <option value="indian">Indian</option>
             <option value="sushi">Sushi</option>
             <option value="italian">Italian</option>
