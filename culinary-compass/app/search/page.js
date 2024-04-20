@@ -29,29 +29,38 @@ export default function Search() {
   });
 
   //calculate the distance between two points
-  const haversineFormula = ({coord1}, {coord2}) => {
+  const haversineFormula = ({coords1}, {coords2}) => {
     function toRad(x) {
         return x * Math.PI / 180;
     }
 
     const R = 6371; // Earth's radius in miles or kilometers
-    const dLat = toRad(coords2.lat - coords1.lat);
-    const dLon = toRad(coords2.lng - coords1.lng);
-    const lat1 = toRad(coords1.lat);
-    const lat2 = toRad(coords2.lat);
+    const dLat = toRad(coords2.latitude - coords1.latitude); //difference in latitude
+    const dLon = toRad(coords2.longitude - coords1.longitude); //diference in longitude
+
 
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2); 
+              Math.cos(toRad(coords1.latitude)) * Math.cos(toRad(coords2.latitude));
+              Math.sin(dLon / 2) * Math.sin(dLon / 2); 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+    console.log("Distance:", R * c);
     return R * c; // Distance in the chosen unit (miles or kilometers)
   }
 
   const createGraph = ({businesses}) => {
     let graph = Graph(); //initialize graph data structure.
+
+    //populate graph with businesses
     for(let i = 0; i < businesses.length; i++){
-      graph.addNode(businesses[0].name);
-      
+      graph.addNode(businesses[i].name);
     }
+    for(let i = 0; i < businesses.length; i++){
+      for(let j = i+1; j < businesses.length; j++){
+        graph.addEdge(businesses[i].name, businesses[j].name, haversineFormula({ coords1: businesses[i].coordinates}, { coords2: businesses[j].coordinates}));
+        graph.addEdge(businesses[j].name, businesses[i].name, haversineFormula({ coords1: businesses[j].coordinates}, { coords2: businesses[i].coordinates}));
+      }
+    }
+    console.log(graph.serialize());
   }
 
   const searchRestaurants = async () => {
@@ -70,7 +79,7 @@ export default function Search() {
           lng: data.businesses[0].coordinates.longitude,
         });
       }
-      createGraph(data.businesses);
+      createGraph({businesses: data.businesses});
     } else {
       console.error("Failed to fetch restaurants:", await response.text());
     }
