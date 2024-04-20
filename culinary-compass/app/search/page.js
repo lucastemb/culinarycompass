@@ -28,6 +28,11 @@ export default function Search() {
     lng: -82.355659,
   });
 
+  const dijkstra = ({graph}) => {
+    let distances = {};
+    let visited = new Set();
+      
+  };
   //calculate the distance between two points
   const haversineFormula = ({coords1}, {coords2}) => {
     function toRad(x) {
