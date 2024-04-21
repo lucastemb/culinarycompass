@@ -31,8 +31,39 @@ export default function Search() {
   const dijkstra = ({graph}) => {
     let distances = {};
     let visited = new Set();
-      
+    let nodes = graph.nodes();
+
+    //set the weight of all the distances set to Infinity initially
+    for (let node of nodes){
+      distances[node] = Infinity;
+    }
+
+    const start = Math.floor(Math.random() * nodes.length);
+    distances[nodes[start]] = 0;
+    
+    while (nodes.length) {
+      nodes.sort((a,b) => distances[a] - distances[b]);
+      let closestNode = nodes.shift();
+      if (distances[closestNode] === Infinity) break;
+      visited.add(closestNode);
+
+      console.log(visited);
+
+      for(let index in graph.adjacent(closestNode)){
+        let neighbor = graph.adjacent(closestNode)[index]
+        if(!visited.has(neighbor)){
+          let newDistance = distances[closestNode] + graph.getEdgeWeight(closestNode, neighbor);
+          // if(newDistance < distances[neighbor]){
+          //   distances[neighbor] = newDistance;
+          // }
+          distances[neighbor] = newDistance;
+        }
+      }  
+    }
+    console.log(distances);
+    return distances;
   };
+
   //calculate the distance between two points
   const haversineFormula = ({coords1}, {coords2}) => {
     function toRad(x) {
@@ -48,7 +79,6 @@ export default function Search() {
               Math.cos(toRad(coords1.latitude)) * Math.cos(toRad(coords2.latitude));
               Math.sin(dLon / 2) * Math.sin(dLon / 2); 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-    console.log("Distance:", R * c);
     return R * c; // Distance in the chosen unit (miles or kilometers)
   }
 
@@ -65,7 +95,7 @@ export default function Search() {
         graph.addEdge(businesses[j].name, businesses[i].name, haversineFormula({ coords1: businesses[j].coordinates}, { coords2: businesses[i].coordinates}));
       }
     }
-    console.log(graph.serialize());
+    return graph;
   }
 
   const searchRestaurants = async () => {
@@ -84,7 +114,8 @@ export default function Search() {
           lng: data.businesses[0].coordinates.longitude,
         });
       }
-      createGraph({businesses: data.businesses});
+      dijkstra({graph: createGraph({businesses: data.businesses})});
+
     } else {
       console.error("Failed to fetch restaurants:", await response.text());
     }
