@@ -28,9 +28,49 @@ export default function Search() {
     lng: -82.355659,
   });
 
-  const cheapestInsertion = ({ graph }) => {
+  // const dijkstra = ({graph}) => {
+  //   let distances = {};
+  //   let visited = new Set();
+  //   let nodes = graph.nodes();
+
+  //   //set the weight of all the distances set to Infinity initially
+  //   for (let node of nodes){
+  //     distances[node] = Infinity;
+  //   }
+
+  //   const start = Math.floor(Math.random() * nodes.length);
+  //   distances[nodes[start]] = 0;
+    
+  //   while (nodes.length) {
+  //     nodes.sort((a,b) => distances[a] - distances[b]);
+  //     let closestNode = nodes.shift();
+  //     if (distances[closestNode] === Infinity) break;
+  //     visited.add(closestNode);
+
+  //     console.log(visited);
+
+  //     for(let index in graph.adjacent(closestNode)){
+  //       let neighbor = graph.adjacent(closestNode)[index]
+  //       if(!visited.has(neighbor)){
+  //         let newDistance = distances[closestNode] + graph.getEdgeWeight(closestNode, neighbor);
+  //         console.log(closestNode + ":" + neighbor)
+  //         console.log(graph.getEdgeWeight(closestNode, neighbor));
+  //         if(newDistance < distances[neighbor]){
+  //           distances[neighbor] = newDistance;
+  //         }
+  //         // distances[neighbor] = newDistance;
+  //       }
+  //     } 
+  //     console.log(distances); 
+  //   }
+  //   console.log(distances);
+  //   return distances;
+  // };
+
+
+  const cheapestInsertion = (start, { graph }) => {
     const nodes = graph.nodes();
-    const startNode = nodes[Math.floor(Math.random() * nodes.length)]; // Start from a random node
+    const startNode = nodes[start]; // Start from a random node
     let tour = [startNode]; // Initialize the tour with the starting node
     let unvisited = new Set(nodes);
     unvisited.delete(startNode); // Mark the starting node as visited
@@ -82,16 +122,15 @@ export default function Search() {
 const calculateTourDistance = ({tour, graph}) => {
     let totalDistance = 0;
     for (let i = 0; i < tour.length - 1; i++) {
-        console.log(graph.getEdgeWeight(tour[i],tour[i+1]));
         totalDistance += graph.getEdgeWeight(tour[i], tour[i + 1]);
     }
     return totalDistance;
 };
 
 
-const nearestNeighbor = ({graph}) => {
+const nearestNeighbor = (start, {graph}) => {
     const nodes = graph.nodes();
-    const startNode = nodes[Math.floor(Math.random() * nodes.length)]; 
+    const startNode = nodes[start]; 
     let current = startNode;
     let unvisited = new Set(nodes);
     unvisited.delete(current); 
@@ -124,44 +163,6 @@ const nearestNeighbor = ({graph}) => {
     };
 };
 
-  // const dijkstra = ({graph}) => {
-  //   let distances = {};
-  //   let visited = new Set();
-  //   let nodes = graph.nodes();
-
-  //   //set the weight of all the distances set to Infinity initially
-  //   for (let node of nodes){
-  //     distances[node] = Infinity;
-  //   }
-
-  //   const start = Math.floor(Math.random() * nodes.length);
-  //   distances[nodes[start]] = 0;
-    
-  //   while (nodes.length) {
-  //     nodes.sort((a,b) => distances[a] - distances[b]);
-  //     let closestNode = nodes.shift();
-  //     if (distances[closestNode] === Infinity) break;
-  //     visited.add(closestNode);
-
-  //     console.log(visited);
-
-  //     for(let index in graph.adjacent(closestNode)){
-  //       let neighbor = graph.adjacent(closestNode)[index]
-  //       if(!visited.has(neighbor)){
-  //         let newDistance = distances[closestNode] + graph.getEdgeWeight(closestNode, neighbor);
-  //         console.log(closestNode + ":" + neighbor)
-  //         console.log(graph.getEdgeWeight(closestNode, neighbor));
-  //         if(newDistance < distances[neighbor]){
-  //           distances[neighbor] = newDistance;
-  //         }
-  //         // distances[neighbor] = newDistance;
-  //       }
-  //     } 
-  //     console.log(distances); 
-  //   }
-  //   console.log(distances);
-  //   return distances;
-  // };
 
   //calculate the distance between two points
   const haversineFormula = ({coords1}, {coords2}) => {
@@ -213,11 +214,15 @@ const nearestNeighbor = ({graph}) => {
           lng: data.businesses[0].coordinates.longitude,
         });
       }
-      const { path, totalDistance } = nearestNeighbor({graph: createGraph({businesses: data.businesses})});
-      console.log("Shorest Path:", path);
+      
+      const graph = createGraph({businesses: data.businesses});
+      const nodes = graph.nodes();
+      const start = Math.floor(Math.random() * nodes.length); // Start from a random node
+      const { path, totalDistance } = nearestNeighbor(start, {graph: graph});
+      console.log("Shortest Path:", path);
       console.log("Shortest Distance:", totalDistance);
 
-      const { tour, distance } = cheapestInsertion({graph: createGraph({businesses: data.businesses})});
+      const { tour, distance } = cheapestInsertion(start, {graph: graph});
       console.log("Tour:", tour);
       console.log("Total Distance:", distance);
     } else {
