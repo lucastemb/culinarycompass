@@ -28,41 +28,140 @@ export default function Search() {
     lng: -82.355659,
   });
 
-  const dijkstra = ({graph}) => {
-    let distances = {};
-    let visited = new Set();
-    let nodes = graph.nodes();
+  const cheapestInsertion = ({ graph }) => {
+    const nodes = graph.nodes();
+    const startNode = nodes[Math.floor(Math.random() * nodes.length)]; // Start from a random node
+    let tour = [startNode]; // Initialize the tour with the starting node
+    let unvisited = new Set(nodes);
+    unvisited.delete(startNode); // Mark the starting node as visited
 
-    //set the weight of all the distances set to Infinity initially
-    for (let node of nodes){
-      distances[node] = Infinity;
-    }
+    // Function to calculate the cost of inserting a city into the tour
+    const calculateInsertionCost = (city, tour) => {
+      let minIncrease = Infinity;
+      let bestIndex;
+      for (let i = 0; i < tour.length; i++) {
+          let currentCity = tour[i];
+          let nextCity = tour[(i + 1) % tour.length]; // Wrap around to the first city if i reaches the end of the tour
+          const distanceIncrease = graph.getEdgeWeight(currentCity, city) + graph.getEdgeWeight(city, nextCity) - graph.getEdgeWeight(currentCity, nextCity);
+          if (distanceIncrease < minIncrease) {
+              minIncrease = distanceIncrease;
+              bestIndex = i + 1;
+          }
+      }
+      return { index: bestIndex, increase: minIncrease };
+    };
 
-    const start = Math.floor(Math.random() * nodes.length);
-    distances[nodes[start]] = 0;
-    
-    while (nodes.length) {
-      nodes.sort((a,b) => distances[a] - distances[b]);
-      let closestNode = nodes.shift();
-      if (distances[closestNode] === Infinity) break;
-      visited.add(closestNode);
-
-      console.log(visited);
-
-      for(let index in graph.adjacent(closestNode)){
-        let neighbor = graph.adjacent(closestNode)[index]
-        if(!visited.has(neighbor)){
-          let newDistance = distances[closestNode] + graph.getEdgeWeight(closestNode, neighbor);
-          // if(newDistance < distances[neighbor]){
-          //   distances[neighbor] = newDistance;
-          // }
-          distances[neighbor] = newDistance;
+    // Main loop: Add each city to the tour
+    while (unvisited.size > 0) {
+        let bestCity;
+        let bestInsertion;
+        let minIncrease = Infinity;
+        for (let city of unvisited) {
+            const insertion = calculateInsertionCost(city, tour);
+            if (insertion && insertion.increase < minIncrease) { // Check if insertion is defined
+                minIncrease = insertion.increase;
+                bestCity = city;
+                bestInsertion = insertion;
+            }
         }
-      }  
+        tour.splice(bestInsertion.index, 0, bestCity); // Insert the city into the tour
+        unvisited.delete(bestCity); // Mark the city as visited
     }
-    console.log(distances);
-    return distances;
-  };
+
+    // Return to the starting city to complete the tour
+    tour.push(startNode);
+
+    return {
+        tour,
+        distance: calculateTourDistance({tour: tour, graph: graph})
+    };
+};
+
+
+
+const calculateTourDistance = ({tour, graph}) => {
+    let totalDistance = 0;
+    for (let i = 0; i < tour.length - 1; i++) {
+        console.log(graph.getEdgeWeight(tour[i],tour[i+1]));
+        totalDistance += graph.getEdgeWeight(tour[i], tour[i + 1]);
+    }
+    return totalDistance;
+};
+
+
+const nearestNeighbor = ({graph}) => {
+    const nodes = graph.nodes();
+    const startNode = nodes[Math.floor(Math.random() * nodes.length)]; 
+    let current = startNode;
+    let unvisited = new Set(nodes);
+    unvisited.delete(current); 
+    let path = [current];
+    let totalDistance = 0;
+
+    while (unvisited.size > 0) {
+        let nearestNeighbor;
+        let minDistance = Infinity;
+        for (let neighbor of unvisited) {
+            const distance = graph.getEdgeWeight(current, neighbor);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestNeighbor = neighbor;
+            }
+        }
+        totalDistance += minDistance;
+        current = nearestNeighbor;
+        unvisited.delete(current);
+        path.push(current);
+    }
+
+   
+    totalDistance += graph.getEdgeWeight(current, startNode);
+    path.push(startNode);
+
+    return {
+        path,
+        totalDistance
+    };
+};
+
+  // const dijkstra = ({graph}) => {
+  //   let distances = {};
+  //   let visited = new Set();
+  //   let nodes = graph.nodes();
+
+  //   //set the weight of all the distances set to Infinity initially
+  //   for (let node of nodes){
+  //     distances[node] = Infinity;
+  //   }
+
+  //   const start = Math.floor(Math.random() * nodes.length);
+  //   distances[nodes[start]] = 0;
+    
+  //   while (nodes.length) {
+  //     nodes.sort((a,b) => distances[a] - distances[b]);
+  //     let closestNode = nodes.shift();
+  //     if (distances[closestNode] === Infinity) break;
+  //     visited.add(closestNode);
+
+  //     console.log(visited);
+
+  //     for(let index in graph.adjacent(closestNode)){
+  //       let neighbor = graph.adjacent(closestNode)[index]
+  //       if(!visited.has(neighbor)){
+  //         let newDistance = distances[closestNode] + graph.getEdgeWeight(closestNode, neighbor);
+  //         console.log(closestNode + ":" + neighbor)
+  //         console.log(graph.getEdgeWeight(closestNode, neighbor));
+  //         if(newDistance < distances[neighbor]){
+  //           distances[neighbor] = newDistance;
+  //         }
+  //         // distances[neighbor] = newDistance;
+  //       }
+  //     } 
+  //     console.log(distances); 
+  //   }
+  //   console.log(distances);
+  //   return distances;
+  // };
 
   //calculate the distance between two points
   const haversineFormula = ({coords1}, {coords2}) => {
@@ -114,8 +213,13 @@ export default function Search() {
           lng: data.businesses[0].coordinates.longitude,
         });
       }
-      dijkstra({graph: createGraph({businesses: data.businesses})});
+      const { path, totalDistance } = nearestNeighbor({graph: createGraph({businesses: data.businesses})});
+      console.log("Shorest Path:", path);
+      console.log("Shortest Distance:", totalDistance);
 
+      const { tour, distance } = cheapestInsertion({graph: createGraph({businesses: data.businesses})});
+      console.log("Tour:", tour);
+      console.log("Total Distance:", distance);
     } else {
       console.error("Failed to fetch restaurants:", await response.text());
     }
