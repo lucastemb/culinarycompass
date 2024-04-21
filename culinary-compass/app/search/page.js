@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import {Graph} from "graph-data-structure";
 import {
   GoogleMap,
   LoadScript,
@@ -13,7 +14,7 @@ const mapContainerStyle = {
   height: "100vh",
 };
 
-const mapApiKey = "AIzaSyBrD8hrtxYjrK1TmSHnOZr68EkMJomqyMI";
+const mapApiKey = "AIzaSyBrD8hrtxYjrK1TmSHnOZr68EkMJomqyMI"; //this should be changed to a secret later
 
 export default function Search() {
   const [location, setLocation] = useState("");
@@ -23,9 +24,179 @@ export default function Search() {
   const [restaurants, setRestaurants] = useState([]);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [mapCenter, setMapCenter] = useState({
-    lat: 28.538336,
-    lng: -81.379234,
+    lat: 29.6465,
+    lng: -82.355659,
   });
+
+  // const dijkstra = ({graph}) => {
+  //   let distances = {};
+  //   let visited = new Set();
+  //   let nodes = graph.nodes();
+
+  //   //set the weight of all the distances set to Infinity initially
+  //   for (let node of nodes){
+  //     distances[node] = Infinity;
+  //   }
+
+  //   const start = Math.floor(Math.random() * nodes.length);
+  //   distances[nodes[start]] = 0;
+    
+  //   while (nodes.length) {
+  //     nodes.sort((a,b) => distances[a] - distances[b]);
+  //     let closestNode = nodes.shift();
+  //     if (distances[closestNode] === Infinity) break;
+  //     visited.add(closestNode);
+
+  //     console.log(visited);
+
+  //     for(let index in graph.adjacent(closestNode)){
+  //       let neighbor = graph.adjacent(closestNode)[index]
+  //       if(!visited.has(neighbor)){
+  //         let newDistance = distances[closestNode] + graph.getEdgeWeight(closestNode, neighbor);
+  //         console.log(closestNode + ":" + neighbor)
+  //         console.log(graph.getEdgeWeight(closestNode, neighbor));
+  //         if(newDistance < distances[neighbor]){
+  //           distances[neighbor] = newDistance;
+  //         }
+  //         // distances[neighbor] = newDistance;
+  //       }
+  //     } 
+  //     console.log(distances); 
+  //   }
+  //   console.log(distances);
+  //   return distances;
+  // };
+
+
+  const cheapestInsertion = (start, { graph }) => {
+    const nodes = graph.nodes();
+    const startNode = nodes[start]; // Start from a random node
+    let tour = [startNode]; // Initialize the tour with the starting node
+    let unvisited = new Set(nodes);
+    unvisited.delete(startNode); // Mark the starting node as visited
+
+    // Function to calculate the cost of inserting a city into the tour
+    const calculateInsertionCost = (city, tour) => {
+      let minIncrease = Infinity;
+      let bestIndex;
+      for (let i = 0; i < tour.length; i++) {
+          let currentCity = tour[i];
+          let nextCity = tour[(i + 1) % tour.length]; // Wrap around to the first city if i reaches the end of the tour
+          const distanceIncrease = graph.getEdgeWeight(currentCity, city) + graph.getEdgeWeight(city, nextCity) - graph.getEdgeWeight(currentCity, nextCity);
+          if (distanceIncrease < minIncrease) {
+              minIncrease = distanceIncrease;
+              bestIndex = i + 1;
+          }
+      }
+      return { index: bestIndex, increase: minIncrease };
+    };
+
+    // Main loop: Add each city to the tour
+    while (unvisited.size > 0) {
+        let bestCity;
+        let bestInsertion;
+        let minIncrease = Infinity;
+        for (let city of unvisited) {
+            const insertion = calculateInsertionCost(city, tour);
+            if (insertion && insertion.increase < minIncrease) { // Check if insertion is defined
+                minIncrease = insertion.increase;
+                bestCity = city;
+                bestInsertion = insertion;
+            }
+        }
+        tour.splice(bestInsertion.index, 0, bestCity); // Insert the city into the tour
+        unvisited.delete(bestCity); // Mark the city as visited
+    }
+
+    // Return to the starting city to complete the tour
+    tour.push(startNode);
+
+    return {
+        tour,
+        distance: calculateTourDistance({tour: tour, graph: graph})
+    };
+};
+
+
+
+const calculateTourDistance = ({tour, graph}) => {
+    let totalDistance = 0;
+    for (let i = 0; i < tour.length - 1; i++) {
+        totalDistance += graph.getEdgeWeight(tour[i], tour[i + 1]);
+    }
+    return totalDistance;
+};
+
+
+const nearestNeighbor = (start, {graph}) => {
+    const nodes = graph.nodes();
+    const startNode = nodes[start]; 
+    let current = startNode;
+    let unvisited = new Set(nodes);
+    unvisited.delete(current); 
+    let path = [current];
+    let totalDistance = 0;
+
+    while (unvisited.size > 0) {
+        let nearestNeighbor;
+        let minDistance = Infinity;
+        for (let neighbor of unvisited) {
+            const distance = graph.getEdgeWeight(current, neighbor);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestNeighbor = neighbor;
+            }
+        }
+        totalDistance += minDistance;
+        current = nearestNeighbor;
+        unvisited.delete(current);
+        path.push(current);
+    }
+
+   
+    totalDistance += graph.getEdgeWeight(current, startNode);
+    path.push(startNode);
+
+    return {
+        path,
+        totalDistance
+    };
+};
+
+
+  //calculate the distance between two points
+  const haversineFormula = ({coords1}, {coords2}) => {
+    function toRad(x) {
+        return x * Math.PI / 180;
+    }
+
+    const R = 6371; // Earth's radius in miles or kilometers
+    const dLat = toRad(coords2.latitude - coords1.latitude); //difference in latitude
+    const dLon = toRad(coords2.longitude - coords1.longitude); //diference in longitude
+
+
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(coords1.latitude)) * Math.cos(toRad(coords2.latitude));
+              Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+    return R * c; // Distance in the chosen unit (miles or kilometers)
+  }
+
+  const createGraph = ({businesses}) => {
+    let graph = Graph(); //initialize graph data structure.
+
+    //populate graph with businesses
+    for(let i = 0; i < businesses.length; i++){
+      graph.addNode(businesses[i].name);
+    }
+    for(let i = 0; i < businesses.length; i++){
+      for(let j = i+1; j < businesses.length; j++){
+        graph.addEdge(businesses[i].name, businesses[j].name, haversineFormula({ coords1: businesses[i].coordinates}, { coords2: businesses[j].coordinates}));
+        graph.addEdge(businesses[j].name, businesses[i].name, haversineFormula({ coords1: businesses[j].coordinates}, { coords2: businesses[i].coordinates}));
+      }
+    }
+    return graph;
+  }
 
   const searchRestaurants = async () => {
     const url = `http://localhost:3001/api/search?location=${encodeURIComponent(
@@ -43,6 +214,17 @@ export default function Search() {
           lng: data.businesses[0].coordinates.longitude,
         });
       }
+      
+      const graph = createGraph({businesses: data.businesses});
+      const nodes = graph.nodes();
+      const start = Math.floor(Math.random() * nodes.length); // Start from a random node
+      const { path, totalDistance } = nearestNeighbor(start, {graph: graph});
+      console.log("Shortest Path:", path);
+      console.log("Shortest Distance:", totalDistance);
+
+      const { tour, distance } = cheapestInsertion(start, {graph: graph});
+      console.log("Tour:", tour);
+      console.log("Total Distance:", distance);
     } else {
       console.error("Failed to fetch restaurants:", await response.text());
     }
@@ -150,7 +332,7 @@ export default function Search() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
           >
-            <option value="">Select Price</option>
+            <option value="">N/A</option>
             <option value="1">$</option>
             <option value="2">$$</option>
             <option value="3">$$$</option>
@@ -161,7 +343,7 @@ export default function Search() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            <option value="">Select Cuisine</option>
+            <option value="">N/A</option>
             <option value="indian">Indian</option>
             <option value="sushi">Sushi</option>
             <option value="italian">Italian</option>
