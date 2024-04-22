@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import {Graph} from "graph-data-structure";
+import Chart from '../components/Chart';
 import {
   GoogleMap,
   LoadScript,
@@ -23,6 +24,22 @@ export default function Search() {
   const [category, setCategory] = useState("");
   const [restaurants, setRestaurants] = useState([]);
   const [selectedPlace, setSelectedPlace] = useState(null);
+
+  //distance 
+  const [nNDist, setNNDist] = useState(null);
+  const [cIDist, setCIDist] = useState(null);
+
+  //time taken
+  const [nNTime, setNNTime] = useState(null);
+  const [cITime, setCITime] = useState(null);
+
+  //tour
+  const [nNTour, setnNTour] = useState(null);
+  const [cITour, setCITour] = useState(null);
+
+
+
+
   const [mapCenter, setMapCenter] = useState({
     lat: 29.6465,
     lng: -82.355659,
@@ -69,6 +86,7 @@ export default function Search() {
 
 
   const cheapestInsertion = (start, { graph }) => {
+    const startTime = performance.now();
     const nodes = graph.nodes();
     const startNode = nodes[start]; // Start from a random node
     let tour = [startNode]; // Initialize the tour with the starting node
@@ -107,13 +125,16 @@ export default function Search() {
         tour.splice(bestInsertion.index, 0, bestCity); // Insert the city into the tour
         unvisited.delete(bestCity); // Mark the city as visited
     }
-
     // Return to the starting city to complete the tour
     tour.push(startNode);
+    const endTime = performance.now();
+    const elapsedTime = endTime - startTime;
+
 
     return {
         tour,
-        distance: calculateTourDistance({tour: tour, graph: graph})
+        distance: calculateTourDistance({tour: tour, graph: graph}),
+        cheapestInsertionTime: elapsedTime
     };
 };
 
@@ -129,6 +150,7 @@ const calculateTourDistance = ({tour, graph}) => {
 
 
 const nearestNeighbor = (start, {graph}) => {
+    const startTime = performance.now();
     const nodes = graph.nodes();
     const startNode = nodes[start]; 
     let current = startNode;
@@ -156,10 +178,12 @@ const nearestNeighbor = (start, {graph}) => {
    
     totalDistance += graph.getEdgeWeight(current, startNode);
     path.push(startNode);
-
+    const endTime = performance.now();
+    const elapsedTime = endTime - startTime;
     return {
         path,
-        totalDistance
+        totalDistance,
+        nearestNeighborTime: elapsedTime
     };
 };
 
@@ -218,13 +242,21 @@ const nearestNeighbor = (start, {graph}) => {
       const graph = createGraph({businesses: data.businesses});
       const nodes = graph.nodes();
       const start = Math.floor(Math.random() * nodes.length); // Start from a random node
-      const { path, totalDistance } = nearestNeighbor(start, {graph: graph});
+      const { path, totalDistance, nearestNeighborTime } = nearestNeighbor(start, {graph: graph});
       console.log("Shortest Path:", path);
+      setnNTour(path);
       console.log("Shortest Distance:", totalDistance);
+      setNNDist(totalDistance);
+      console.log("Time:", nearestNeighborTime + "ms");
+      setNNTime(nearestNeighborTime);
 
-      const { tour, distance } = cheapestInsertion(start, {graph: graph});
+      const { tour, distance, cheapestInsertionTime } = cheapestInsertion(start, {graph: graph});
       console.log("Tour:", tour);
+      setCITour(tour);
       console.log("Total Distance:", distance);
+      setCIDist(distance);
+      console.log("Time:",cheapestInsertionTime + "ms")
+      setCITime(cheapestInsertionTime);
     } else {
       console.error("Failed to fetch restaurants:", await response.text());
     }
@@ -357,6 +389,12 @@ const nearestNeighbor = (start, {graph}) => {
             Search
           </button>
         </div>
+      </div>
+      <div className="absolute top-[18em] w-[20em] h-[20em]"> 
+      <Chart algorithm={"Nearest Neighbor"} time={nNTime} tour={nNTour} distance={nNDist}/>
+      </div>
+      <div className="absolute top-[48em] w-[20em] h-[20em]"> 
+      <Chart algorithm={"Cheapest Insertion"} time={cITime} tour={cITour} distance={cIDist}/>
       </div>
     </div>
   );
