@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+
 import {
   GoogleMap,
   LoadScript,
@@ -13,6 +14,8 @@ const mapContainerStyle = {
   width: "100%",
   height: "100vh",
 };
+
+
 
 const mapApiKey = "AIzaSyBrD8hrtxYjrK1TmSHnOZr68EkMJomqyMI";
 
@@ -36,7 +39,7 @@ export default function RestaurantFinder() {
 
   const fetchData = async () => {
     try {
-      const url = `http://localhost:3001/api/search?location=${encodeURIComponent(
+      const url = `https://culinary-compass-b0cfb.web.app/api/search?location=${encodeURIComponent(
         location
       )}&radius=${encodeURIComponent(
         radius
