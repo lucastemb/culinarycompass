@@ -44,6 +44,10 @@ export default function RestaurantFinder() {
       const response = await fetch(url);
       const data = await response.json();
       setRestaurants(data.businesses);
+
+      //conversion factor from kmToMiles
+      const kmToMiles = 0.621371;
+
       const graph = createGraph(data.businesses);
       const startNode = 0;
 
@@ -52,14 +56,14 @@ export default function RestaurantFinder() {
       const endTimeNN = performance.now();
       setNNTime((endTimeNN - startTimeNN).toFixed(2));
       setNNPath(nnData.path);
-      setNNDistance(nnData.totalDistance.toFixed(2));
+      setNNDistance((nnData.totalDistance*kmToMiles).toFixed(2));
 
       const startTimeCI = performance.now();
       const ciData = cheapestInsertion(startNode, graph);
       const endTimeCI = performance.now();
       setCITime((endTimeCI - startTimeCI).toFixed(2));
       setCIPath(ciData.path);
-      setCIDistance(ciData.totalDistance.toFixed(2));
+      setCIDistance((ciData.totalDistance*kmToMiles).toFixed(2));
 
       if (
         data.region &&
@@ -267,7 +271,7 @@ export default function RestaurantFinder() {
           </GoogleMap>
         </LoadScript>
       </div>
-      <div className="w-1/5 h-full bg-gray-100 p-4 space-y-4 absolute right-0 top-0">
+      <div className="w-1/5 overflow-hidden h-full bg-gray-100 p-4 space-y-4 absolute right-0 top-0">
         <div className="space-y-2">
           <input
             type="text"
@@ -276,13 +280,20 @@ export default function RestaurantFinder() {
             placeholder="Location"
             className="input input-bordered w-full"
           />
+          <div className="flex flex-row">
+          <p className="mr-2 text-center"> Miles: </p>
           <input
-            type="text"
+            type="range"
             value={radius}
             onChange={(e) => setRadius(e.target.value)}
+            min="0"
+            max="24"
+            step="1"
             placeholder="Radius in miles"
-            className="input input-bordered w-full"
+            className="input input-bordered w-full mr-4"
           />
+          <span> {radius} </span>
+          </div>
           <select
             className="select select-bordered w-full"
             value={price}
@@ -311,7 +322,7 @@ export default function RestaurantFinder() {
         <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
           <h3 className="text-lg font-bold">Nearest Neighbor Route</h3>
           <p>
-            Distance: {nnDistance} km, Time: {nnTime} ms
+            Distance: {nnDistance} mi, Time: {nnTime} ms
           </p>
           {nnPath.map((idx, index) => (
             <div
@@ -328,7 +339,7 @@ export default function RestaurantFinder() {
         <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
           <h3 className="text-lg font-bold">Cheapest Insertion Route</h3>
           <p>
-            Distance: {ciDistance} km, Time: {ciTime} ms
+            Distance: {ciDistance} mi, Time: {ciTime} ms
           </p>
           {ciPath.map((idx, index) => (
             <div
