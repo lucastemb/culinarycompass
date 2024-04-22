@@ -370,7 +370,7 @@ const nearestNeighbor = (start, {graph}) => {
             <option value="3">$$$</option>
             <option value="4">$$$$</option>
           </select>
-          <select
+          {/* <select
             className="select select-bordered w-full"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -384,7 +384,7 @@ const nearestNeighbor = (start, {graph}) => {
             <option value="thai">Thai</option>
             <option value="french">French</option>
             <option value="spanish">Spanish</option>
-          </select>
+          </select> */}
           <button onClick={searchRestaurants} className="btn btn-primary mt-2">
             Search
           </button>
