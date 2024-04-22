@@ -390,10 +390,10 @@ const nearestNeighbor = (start, {graph}) => {
           </button>
         </div>
       </div>
-      <div className="absolute top-[18em] w-[20em] h-[20em]"> 
+      <div className="absolute right-0 top-[10px] w-[325px]"> 
       <Chart algorithm={"Nearest Neighbor"} time={nNTime} tour={nNTour} distance={nNDist}/>
       </div>
-      <div className="absolute top-[48em] w-[20em] h-[20em]"> 
+      <div className="absolute right-0 top-[350px] w-[325px]"> 
       <Chart algorithm={"Cheapest Insertion"} time={cITime} tour={cITour} distance={cIDist}/>
       </div>
     </div>

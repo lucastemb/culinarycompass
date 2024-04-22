@@ -4,7 +4,7 @@ const Chart = (props) => {
   return (
     <div className="bg-white">
       <h1 className="font-bold text-xl opacity-100"> {props.algorithm} </h1>
-      <div className="overflow-auto h-[18rem]">
+      <div className="overflow-auto h-[250px]">
       <h2 className="font-bold"> Order to Visit: </h2>
       <ul>
         {props.tour && props.tour.map((restaurant, index)=> {
