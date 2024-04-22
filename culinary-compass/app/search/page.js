@@ -297,7 +297,7 @@ export default function RestaurantFinder() {
             type="text"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            placeholder="Category (optinal)"
+            placeholder="Category (optional)"
             className="input input-bordered w-full"
           />
           <button
