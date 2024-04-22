@@ -1,113 +1,360 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState } from "react";
+
+import {
+  GoogleMap,
+  LoadScript,
+  Marker,
+  InfoWindow,
+} from "@react-google-maps/api";
+import Graph from "graph-data-structure";
+
+const mapContainerStyle = {
+  width: "100%",
+  height: "100vh",
+};
+
+const mapApiKey = process.env.NEXT_PUBLIC_MAP_API_KEY;
+
+export default function RestaurantFinder() {
+  const [location, setLocation] = useState("");
+  const [radius, setRadius] = useState("");
+  const [price, setPrice] = useState("");
+  const [category, setCategory] = useState("");
+  const [restaurants, setRestaurants] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [mapCenter, setMapCenter] = useState({
+    lat: 29.6465,
+    lng: -82.355659,
+  });
+  const [nnPath, setNNPath] = useState([]);
+  const [ciPath, setCIPath] = useState([]);
+  const [nnTime, setNNTime] = useState(0);
+  const [ciTime, setCITime] = useState(0);
+  const [nnDistance, setNNDistance] = useState(0);
+  const [ciDistance, setCIDistance] = useState(0);
+
+  const fetchData = async () => {
+    try {
+      const url = `https://culinary-compass-b0cfb.web.app/api/search?location=${encodeURIComponent(
+        location
+      )}&radius=${encodeURIComponent(
+        radius
+      )}&price=${price}&categories=${encodeURIComponent(category)}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      setRestaurants(data.businesses);
+
+      //conversion factor from kmToMiles
+      const kmToMiles = 0.621371;
+
+      const graph = createGraph(data.businesses);
+      const startNode = 0;
+
+      const startTimeNN = performance.now();
+      const nnData = nearestNeighbor(startNode, graph);
+      const endTimeNN = performance.now();
+      setNNTime((endTimeNN - startTimeNN).toFixed(2));
+      setNNPath(nnData.path);
+      setNNDistance((nnData.totalDistance*kmToMiles).toFixed(2));
+
+      const startTimeCI = performance.now();
+      const ciData = cheapestInsertion(startNode, graph);
+      const endTimeCI = performance.now();
+      setCITime((endTimeCI - startTimeCI).toFixed(2));
+      setCIPath(ciData.path);
+      setCIDistance((ciData.totalDistance*kmToMiles).toFixed(2));
+
+      if (
+        data.region &&
+        data.region.center &&
+        !isNaN(data.region.center.latitude) &&
+        !isNaN(data.region.center.longitude)
+      ) {
+        setMapCenter({
+          lat: data.region.center.latitude,
+          lng: data.region.center.longitude,
+        });
+      } else {
+        console.error(
+          "Invalid or missing center coordinates:",
+          data.region.center
+        );
+        setMapCenter({
+          lat: 29.6465,
+          lng: -82.355659,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      setMapCenter({
+        lat: 29.6465,
+        lng: -82.355659,
+      });
+    }
+  };
+
+  const haversineDistance = (coords1, coords2) => {
+    const toRad = (x) => (x * Math.PI) / 180;
+    const R = 6371; // Radius of the Earth in kilometers
+    const dLat = toRad(coords2.latitude - coords1.latitude);
+    const dLon = toRad(coords2.longitude - coords1.longitude);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(coords1.latitude)) *
+        Math.cos(toRad(coords2.latitude)) *
+        Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const createGraph = (businesses) => {
+    let graph = Graph();
+    businesses.forEach((business, index) => {
+      graph.addNode(index.toString());
+    });
+    businesses.forEach((business1, i) => {
+      businesses.forEach((business2, j) => {
+        if (i !== j) {
+          const distance = haversineDistance(
+            business1.coordinates,
+            business2.coordinates
+          );
+          graph.addEdge(i.toString(), j.toString(), distance);
+          graph.addEdge(j.toString(), i.toString(), distance);
+        }
+      });
+    });
+    return graph;
+  };
+
+  const nearestNeighbor = (start, graph) => {
+    let path = [start.toString()];
+    let used = new Set(path);
+    let currentNode = start.toString();
+    let totalDistance = 0;
+
+    while (path.length < graph.nodes().length) {
+      let nextNode = graph
+        .adjacent(currentNode)
+        .filter((n) => !used.has(n))
+        .reduce(
+          (acc, n) =>
+            !acc ||
+            graph.getEdgeWeight(currentNode, n) <
+              graph.getEdgeWeight(currentNode, acc)
+              ? n
+              : acc,
+          null
+        );
+
+      if (!nextNode) break;
+      totalDistance += graph.getEdgeWeight(currentNode, nextNode);
+      path.push(nextNode);
+      used.add(nextNode);
+      currentNode = nextNode;
+    }
+
+    if (path.length > 1 && start.toString() !== currentNode) {
+      totalDistance += graph.getEdgeWeight(currentNode, start.toString());
+      path.push(start.toString());
+    }
+
+    return { path, totalDistance };
+  };
+
+  const cheapestInsertion = (start, graph) => {
+    let tour = [start.toString()];
+    let candidates = new Set(
+      graph.nodes().filter((n) => n !== start.toString())
+    );
+    let totalDistance = 0;
+
+    while (candidates.size > 0) {
+      let bestCost = Infinity;
+      let bestCandidate = null;
+      let bestPosition = null;
+
+      candidates.forEach((candidate) => {
+        for (let i = 0; i < tour.length; i++) {
+          let cost =
+            graph.getEdgeWeight(tour[i], candidate) +
+            graph.getEdgeWeight(candidate, tour[(i + 1) % tour.length]) -
+            graph.getEdgeWeight(tour[i], tour[(i + 1) % tour.length]);
+
+          if (cost < bestCost) {
+            bestCost = cost;
+            bestCandidate = candidate;
+            bestPosition = i + 1;
+          }
+        }
+      });
+
+      if (bestCandidate !== null) {
+        tour.splice(bestPosition, 0, bestCandidate);
+        totalDistance += bestCost;
+        candidates.delete(bestCandidate);
+      }
+    }
+
+    if (tour.length > 1) {
+      totalDistance += graph.getEdgeWeight(tour[tour.length - 1], tour[0]);
+      tour.push(tour[0]);
+    }
+
+    return { path: tour, totalDistance };
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="flex w-full h-full">
+      <div className="flex w-full">
+        <LoadScript googleMapsApiKey={mapApiKey}>
+          <GoogleMap
+            mapContainerStyle={mapContainerStyle}
+            center={mapCenter}
+            zoom={12}
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+            {restaurants.map((restaurant, idx) => (
+              <Marker
+                key={restaurant.id}
+                position={{
+                  lat: restaurant.coordinates.latitude,
+                  lng: restaurant.coordinates.longitude,
+                }}
+                icon={{
+                  url: restaurant.image_url,
+                  scaledSize: new window.google.maps.Size(40, 40),
+                }}
+                onClick={() => setSelectedPlace(restaurant)}
+              />
+            ))}
+
+            {selectedPlace && (
+              <InfoWindow
+                position={{
+                  lat: selectedPlace.coordinates.latitude,
+                  lng: selectedPlace.coordinates.longitude,
+                }}
+                onCloseClick={() => setSelectedPlace(null)}
+              >
+                <div className="space-y-2">
+                  <img
+                    src={selectedPlace.image_url}
+                    alt={selectedPlace.name}
+                    className="w-[200px] h-auto"
+                  />
+                  <h2 className="text-lg font-bold">{selectedPlace.name}</h2>
+                  <h2 className="text-lg">Rating: {selectedPlace.rating}</h2>
+                  <p className="text-sm">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        selectedPlace.location.display_address.join(", ")
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:text-blue-800"
+                    >
+                      {selectedPlace.location.display_address.join(", ")}
+                    </a>
+                  </p>
+                  <a
+                    href={selectedPlace.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-800"
+                  >
+                    View on Yelp
+                  </a>
+                </div>
+              </InfoWindow>
+            )}
+          </GoogleMap>
+        </LoadScript>
+      </div>
+      <div className="w-1/5 overflow-hidden h-full bg-gray-100 p-4 space-y-4 absolute right-0 top-0">
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Location"
+            className="input input-bordered w-full"
+          />
+          <div className="flex flex-row">
+          <p className="mr-2 text-center"> Miles: </p>
+          <input
+            type="range"
+            value={radius}
+            onChange={(e) => setRadius(e.target.value)}
+            min="0"
+            max="24"
+            step="1"
+            placeholder="Radius in miles"
+            className="input input-bordered w-full mr-4"
+          />
+          <span> {radius} </span>
+          </div>
+          <select
+            className="select select-bordered w-full"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+          >
+            <option value="">Price Level</option>
+            <option value="1">$</option>
+            <option value="2">$$</option>
+            <option value="3">$$$</option>
+            <option value="4">$$$$</option>
+          </select>
+          <input
+            type="text"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Category (optional)"
+            className="input input-bordered w-full"
+          />
+          <button
+            onClick={fetchData}
+            className="bg-blue-500 rounded-lg w-full py-1"
+          >
+            <h2 className="text-white">Search</h2>
+          </button>
+        </div>
+        <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
+          <h3 className="text-lg font-bold">Nearest Neighbor Route</h3>
+          <p>
+            Distance: {nnDistance} mi, Time: {nnTime} ms
+          </p>
+          {nnPath.map((idx, index) => (
+            <div
+              key={index}
+              className="cursor-pointer hover:bg-gray-200 p-2"
+              onClick={() => setSelectedPlace(restaurants[idx])}
+            >
+              {`${index + 1}. ${
+                restaurants[idx] ? restaurants[idx].name : "Unknown location"
+              }`}
+            </div>
+          ))}
+        </div>
+        <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
+          <h3 className="text-lg font-bold">Cheapest Insertion Route</h3>
+          <p>
+            Distance: {ciDistance} mi, Time: {ciTime} ms
+          </p>
+          {ciPath.map((idx, index) => (
+            <div
+              key={index}
+              className="cursor-pointer hover:bg-gray-200 p-2"
+              onClick={() => setSelectedPlace(restaurants[idx])}
+            >
+              {`${index + 1}. ${
+                restaurants[idx] ? restaurants[idx].name : "Unknown location"
+              }`}
+            </div>
+          ))}
         </div>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    </div>
   );
 }
