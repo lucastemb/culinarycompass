@@ -117,6 +117,7 @@ export default function RestaurantFinder() {
             business2.coordinates
           );
           graph.addEdge(i.toString(), j.toString(), distance);
+          graph.addEdge(j.toString(), i.toString(), distance);
         }
       });
     });
