@@ -37,6 +37,10 @@ export default function RestaurantFinder() {
 
   const fetchData = async () => {
     try {
+      if(!location){
+        alert("Please enter a location!");
+        return;
+      }
       const url = `https://culinary-compass-b0cfb.web.app/api/search?location=${encodeURIComponent(
         location
       )}&radius=${encodeURIComponent(
@@ -44,6 +48,10 @@ export default function RestaurantFinder() {
       )}&price=${price}&categories=${encodeURIComponent(category)}`;
       const response = await fetch(url);
       const data = await response.json();
+      if(data.error && data.error.code === "LOCATION_NOT_FOUND"){
+        alert("Place not found! Please, try again.")
+        return;
+      }
       setRestaurants(data.businesses);
 
       //conversion factor from kmToMiles
