@@ -8,7 +8,7 @@ const Chart = (props) => {
       <h2 className="font-bold"> Order to Visit: </h2>
       <ul>
         {props.tour && props.tour.map((restaurant, index)=> {
-          return <li key={index}>{index+1}: {restaurant}</li>
+          return <li key={index}>{index+1}. {restaurant}</li>
         })}
       </ul>
       </div>
