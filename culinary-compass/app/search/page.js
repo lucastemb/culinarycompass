@@ -188,24 +188,24 @@ const nearestNeighbor = (start, {graph}) => {
 };
 
 
-  //calculate the distance between two points
+  //calculate the distance between two latitude and longitude points
   const haversineFormula = ({coords1}, {coords2}) => {
     function toRad(x) {
         return x * Math.PI / 180;
     }
 
-    const R = 6371; // Earth's radius in miles or kilometers
-    const dLat = toRad(coords2.latitude - coords1.latitude); //difference in latitude
-    const dLon = toRad(coords2.longitude - coords1.longitude); //diference in longitude
-
+    const R = 6371; // kilometers
+    const dLat = toRad(coords2.latitude - coords1.latitude); // difference in latitude
+    const dLon = toRad(coords2.longitude - coords1.longitude); // difference in longitude
 
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(toRad(coords1.latitude)) * Math.cos(toRad(coords2.latitude));
-              Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+              Math.cos(toRad(coords1.latitude)) * Math.cos(toRad(coords2.latitude)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-    return R * c; // Distance in the chosen unit (miles or kilometers)
-  }
+    return R * c; // distance in kilometers
+}
 
+  
   const createGraph = ({businesses}) => {
     let graph = Graph(); //initialize graph data structure.
 
@@ -215,8 +215,10 @@ const nearestNeighbor = (start, {graph}) => {
     }
     for(let i = 0; i < businesses.length; i++){
       for(let j = i+1; j < businesses.length; j++){
+        console.log(haversineFormula({ coords1: businesses[i].coordinates}, { coords2: businesses[j].coordinates}));
         graph.addEdge(businesses[i].name, businesses[j].name, haversineFormula({ coords1: businesses[i].coordinates}, { coords2: businesses[j].coordinates}));
         graph.addEdge(businesses[j].name, businesses[i].name, haversineFormula({ coords1: businesses[j].coordinates}, { coords2: businesses[i].coordinates}));
+      
       }
     }
     return graph;
