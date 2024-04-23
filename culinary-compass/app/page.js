@@ -18,6 +18,7 @@ const mapContainerStyle = {
 const mapApiKey = process.env.NEXT_PUBLIC_MAP_API_KEY;
 
 export default function RestaurantFinder() {
+  //variables that will store user input
   const [location, setLocation] = useState("");
   const [radius, setRadius] = useState("");
   const [price, setPrice] = useState("");
@@ -25,9 +26,12 @@ export default function RestaurantFinder() {
   const [restaurants, setRestaurants] = useState([]);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [mapCenter, setMapCenter] = useState({
+    //set coordinates to Gainesville/ University of Florida area
     lat: 29.6465,
     lng: -82.355659,
   });
+
+  //will store comparative data/info for each heuristic (nearestNeighbor and cheapestInsertion)
   const [nnPath, setNNPath] = useState([]);
   const [ciPath, setCIPath] = useState([]);
   const [nnTime, setNNTime] = useState(0);
@@ -41,6 +45,9 @@ export default function RestaurantFinder() {
         alert("Please enter a location!");
         return;
       }
+      //make request to EXPRESS API endpoint hosted through firebase functions
+
+      //construct query based on user input
       const url = `https://culinary-compass-b0cfb.web.app/api/search?location=${encodeURIComponent(
         location
       )}&radius=${encodeURIComponent(
@@ -48,6 +55,8 @@ export default function RestaurantFinder() {
       )}&price=${price}&categories=${encodeURIComponent(category)}`;
       const response = await fetch(url);
       const data = await response.json();
+
+      //if place is not found, alert the user (prevents program crashes)
       if(data.error && data.error.code === "LOCATION_NOT_FOUND"){
         alert("Place not found! Please, try again.")
         return;
@@ -57,21 +66,26 @@ export default function RestaurantFinder() {
       //conversion factor from kmToMiles
       const kmToMiles = 0.621371;
 
+      //call create graph
       const graph = createGraph(data.businesses);
       const startNode = 0;
-
+      
+      //store performance data for nearest neighbor
       const startTimeNN = performance.now();
       const nnData = nearestNeighbor(startNode, graph);
       const endTimeNN = performance.now();
       setNNTime((endTimeNN - startTimeNN).toFixed(2));
       setNNPath(nnData.path);
+      //convert back distance from km to miles since radius is set to miles initially and this targets US audience
       setNNDistance((nnData.totalDistance*kmToMiles).toFixed(2));
-
+      
+      //store performance data for cheapest insertion
       const startTimeCI = performance.now();
       const ciData = cheapestInsertion(startNode, graph);
       const endTimeCI = performance.now();
       setCITime((endTimeCI - startTimeCI).toFixed(2));
       setCIPath(ciData.path);
+      //same logic as above applies
       setCIDistance((ciData.totalDistance*kmToMiles).toFixed(2));
 
       if (
@@ -103,9 +117,10 @@ export default function RestaurantFinder() {
     }
   };
 
+  //concerts lat and long coordinates to distance in km
   const haversineDistance = (coords1, coords2) => {
     const toRad = (x) => (x * Math.PI) / 180;
-    const R = 6371; // Radius of the Earth in kilometers
+    const R = 6371; // radius of the Earth in kilometers
     const dLat = toRad(coords2.latitude - coords1.latitude);
     const dLon = toRad(coords2.longitude - coords1.longitude);
     const a =
@@ -117,11 +132,14 @@ export default function RestaurantFinder() {
     return R * c;
   };
 
+  //create graph
   const createGraph = (businesses) => {
-    let graph = Graph();
+    let graph = Graph(); //init graph
+    //add each business returned from the query to the graph as a vertex
     businesses.forEach((business, index) => {
       graph.addNode(index.toString());
     });
+    //nested for loop created edges between all businesses/restaurants
     businesses.forEach((business1, i) => {
       businesses.forEach((business2, j) => {
         if (i !== j) {
@@ -137,6 +155,7 @@ export default function RestaurantFinder() {
     return graph;
   };
 
+  //nearestNeighbor heuristic implementation
   const nearestNeighbor = (start, graph) => {
     let path = [start.toString()];
     let used = new Set(path);
@@ -169,9 +188,11 @@ export default function RestaurantFinder() {
       path.push(start.toString());
     }
 
+    //return the path generated and final distance traveled for later use
     return { path, totalDistance };
   };
 
+  //cheapestInsertion heuristic implementation
   const cheapestInsertion = (start, graph) => {
     let tour = [start.toString()];
     let candidates = new Set(
@@ -210,7 +231,7 @@ export default function RestaurantFinder() {
       totalDistance += graph.getEdgeWeight(tour[tour.length - 1], tour[0]);
       tour.push(tour[0]);
     }
-
+    //return the tour and distance for later use
     return { path: tour, totalDistance };
   };
 

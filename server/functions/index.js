@@ -27,6 +27,7 @@ const convertMilesToMeters = (miles) => {
 };
 
 const fetchYelpData = (location, categories, price, radius, callback) => {
+  //build query using parameters passed into fetchYelpData function
   const queryParams = new URLSearchParams({ location });
   if (categories) queryParams.set("categories", categories);
   if (price) queryParams.set("price", price);
@@ -42,6 +43,7 @@ const fetchYelpData = (location, categories, price, radius, callback) => {
     },
   };
 
+  //request data from the URL constructed using parameters above
   const req = https.request(options, (res) => {
     let data = "";
     res.on("data", (chunk) => (data += chunk));
@@ -77,4 +79,5 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
+//used by firebase for firebase functions
 exports.app = functions.https.onRequest(app);
