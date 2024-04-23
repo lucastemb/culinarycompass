@@ -81,7 +81,7 @@ for city in list_cities:
 
 google_url = "https://maps.googleapis.com/maps/api/directions/json"
 
-google_query_params = {"key": "AIzaSyDVy-49BqkQL_ZSZDzG_0ckrzrnd1LUYQU",
+google_query_params = {"key": "API_KEY",
                        "origin": "Gainesville",
                         "destination": "Orlando"}
 
